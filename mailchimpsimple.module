@@ -8,6 +8,16 @@
 require("includes/mailchimp-api/src/MailChimp.php");
 use \DrewM\MailChimp\MailChimp;
 
+/**
+ * Implements hook_config_info().
+ */
+function mailchimpsimple_config_info() {
+  $prefixes['custom.mailchimpsimple'] = array(
+    'label' => t('MailChimp Simple'),
+    'group' => t('Custom'),
+  );
+  return $prefixes;
+}
 
 /**
  * Implements hook_menu().
