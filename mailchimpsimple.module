@@ -142,6 +142,8 @@ function mailchimpsimple_signup_form_validate($form, &$form_state) {
  * Signup form submit handler.
  */
 function mailchimpsimple_signup_form_submit($form, &$form_state) {
+  global $language;
+
   // Get form fields values.
   $list_id = $form_state['values']['list_id'];
   $email = $form_state['values']['email'];
@@ -154,6 +156,7 @@ function mailchimpsimple_signup_form_submit($form, &$form_state) {
   $result = $mailchimpsimple->post("lists/$list_id/members", array(
     'email_address' => $email,
     'status' => mailchimpsimple_get_subscription_status(),
+    'language' => $language->langcode,
   ));
 
   if ($result['status'] == 'subscribed') {
