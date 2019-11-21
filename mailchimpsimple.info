@@ -1,0 +1,4 @@
+name = MailChimpSimple
+description = "Light usage of Mailchimp : Subscribe form block"
+backdrop = 1.x
+type = module

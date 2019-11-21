@@ -1,0 +1,201 @@
+<?php
+
+/**
+ * @file
+ * Code for the MailChimpSimple module.
+ */
+
+require("includes/mailchimp-api/src/MailChimp.php");
+use \DrewM\MailChimp\MailChimp;
+
+
+/**
+ * Implements hook_menu().
+ */
+function mailchimpsimple_menu() {
+  $items['admin/config/services/mailchimpsimple'] = array(
+    'title' => 'MailChimp Simple',
+    'description' => 'Configure MailChimp API Key and List id',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('mailchimpsimple_admin_form'),
+    'file' => 'mailchimpsimple.admin.inc',
+    'access arguments' => array('administer mailchimpsimple')
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function mailchimpsimple_permission() {
+  return array(
+    'administer mailchimpsimple' => array(
+      'title' => t('Administer MailChimp Simple'),
+      'description' => t('Perform administration tasks for MailChimpSimple module.'),
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_block_info().
+ */
+function mailchimpsimple_block_info() {
+  $blocks = array();
+
+  $blocks['mailchimpsimple_signup'] = array(
+    'info' => 'MailChimpSimple Signup',
+    'description' => 'Signup form for a mailchimp list',
+    'cache' => BACKDROP_CACHE_PER_PAGE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function mailchimpsimple_block_view($delta = '') {
+  switch($delta) {
+
+    case 'mailchimpsimple_signup':
+      return array(
+        'subject' => 'Signup',
+        'content' => array(
+          'form' => backdrop_get_form('mailchimpsimple_signup_form')
+        ),
+      );
+      break;
+
+    default:
+      return array('subject' => "", 'content' => "");
+  }
+}
+
+/**
+ * Signup form definition.
+ */
+function mailchimpsimple_signup_form($form, &$form_state) {
+  $form = array();
+
+  $mailchimpsimple_api_key = mailchimpsimple_get_api_key();
+  if (!empty($mailchimpsimple_api_key)) {
+    $mailchimpsimple_default_list = mailchimpsimple_get_default_list();
+    if (!empty($mailchimpsimple_default_list)) {
+      $form['list_id'] = array(
+        '#type' => 'value',
+        '#value' => $mailchimpsimple_default_list
+      );
+
+      $form['email'] = array(
+        '#type' => 'email',
+        '#title' => t('Email'),
+        '#required' => TRUE,
+        '#placeholder' => 'name@example.com',
+      );
+
+      $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Signup')
+      );
+    }
+  }
+
+  return $form;
+}
+
+/**
+ * Signup form validate handler.
+ */
+function mailchimpsimple_signup_form_validate($form, &$form_state) {
+  // Get form fields values.
+  $list_id = $form_state['values']['list_id'];
+  $email = $form_state['values']['email'];
+
+  // Use MailChimp API
+  $mailchimpsimple_api_key = mailchimpsimple_get_api_key();
+  $mailchimpsimple = new MailChimp($mailchimpsimple_api_key);
+
+  // Check that this email is not already subscribed to this list.
+  $subscriber_hash = md5($email);
+  $result = $mailchimpsimple->get("lists/$list_id/members/$subscriber_hash", array(
+    'fields' => array('status'),
+  ));
+
+  if ($result['status'] == 'subscribed') {
+    form_set_error('email', t('%email is already a list member.', array('%email' => $email)));
+  }
+}
+
+/**
+ * Signup form submit handler.
+ */
+function mailchimpsimple_signup_form_submit($form, &$form_state) {
+  // Get form fields values.
+  $list_id = $form_state['values']['list_id'];
+  $email = $form_state['values']['email'];
+
+  // Use MailChimp API
+  $mailchimpsimple_api_key = mailchimpsimple_get_api_key();
+  $mailchimpsimple = new MailChimp($mailchimpsimple_api_key);
+
+  // Subscribe this email to the list.
+  $result = $mailchimpsimple->post("lists/$list_id/members", array(
+    'email_address' => $email,
+    'status'        => 'subscribed',
+  ));
+
+  if ($result['status'] == 'subscribed') {
+    backdrop_set_message(t('%email is now subscribed to the list.', array('%email' => $email)));
+  }
+  else {
+    backdrop_set_message(t('Subscription Error: %error', array('%error' => $result['detail'])), 'error');
+  }
+}
+
+/**
+ * Config helper for mailchimpsimple API key.
+ */
+function mailchimpsimple_get_api_key() {
+  $config = config('custom.mailchimpsimple');
+  return (!empty($config->get('mailchimpsimple_api_key'))) ? $config->get('mailchimpsimple_api_key') : FALSE;
+}
+
+/**
+ * Config helper for mailchimpsimple default list.
+ */
+function mailchimpsimple_get_default_list() {
+  $config = config('custom.mailchimpsimple');
+  return (!empty($config->get('mailchimpsimple_default_list'))) ? $config->get('mailchimpsimple_default_list') : FALSE;
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function mailchimpsimple_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    if (!mailchimpsimple_get_api_key()) {
+      $url = url('admin/config/services/mailchimpsimple');
+      $requirements['mailchimpsimple'] = array(
+        'title' => t('MailChimpSimple'),
+        'value' => t('API Key is not set.'),
+        'description' => t('Do not forget to <a href="@url">configure MailChimpSimple</a> in order to have a working subscription block.', array('%url' => $url)),
+        'severity' => REQUIREMENT_WARNING,
+      );
+    }
+    elseif (!mailchimpsimple_get_default_list()) {
+      $url = url('admin/config/services/mailchimpsimple');
+      $requirements['mailchimpsimple'] = array(
+        'title' => t('MailChimpSimple'),
+        'value' => t('Default list is not set.'),
+        'description' => t('Do not forget to <a href="@url">configure MailChimpSimple</a> in order to have a working subscription block.', array('%url' => $url)),
+        'severity' => REQUIREMENT_WARNING,
+      );
+    }
+  }
+
+  return $requirements;
+}
