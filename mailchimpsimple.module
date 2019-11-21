@@ -153,11 +153,14 @@ function mailchimpsimple_signup_form_submit($form, &$form_state) {
   // Subscribe this email to the list.
   $result = $mailchimpsimple->post("lists/$list_id/members", array(
     'email_address' => $email,
-    'status'        => 'subscribed',
+    'status' => mailchimpsimple_get_subscription_status(),
   ));
 
   if ($result['status'] == 'subscribed') {
     backdrop_set_message(t('%email is now subscribed to the list.', array('%email' => $email)));
+  }
+  elseif ($result['status'] == 'pending') {
+    backdrop_set_message(t('Thanks for you subscription, you will receive a confirmation email.'));
   }
   else {
     backdrop_set_message(t('Subscription Error: %error', array('%error' => $result['detail'])), 'error');
@@ -178,6 +181,14 @@ function mailchimpsimple_get_api_key() {
 function mailchimpsimple_get_default_list() {
   $config = config('custom.mailchimpsimple');
   return (!empty($config->get('mailchimpsimple_default_list'))) ? $config->get('mailchimpsimple_default_list') : FALSE;
+}
+
+/**
+ * Config helper for mailchimpsimple subscription status.
+ */
+function mailchimpsimple_get_subscription_status() {
+  $config = config('custom.mailchimpsimple');
+  return (!empty($config->get('mailchimpsimple_subscription_status'))) ? $config->get('mailchimpsimple_subscription_status') : 'pending';
 }
 
 /**

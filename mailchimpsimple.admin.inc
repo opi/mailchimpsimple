@@ -54,6 +54,18 @@ function mailchimpsimple_admin_form($form, &$form_state) {
       '#default_value' => $default_list,
       '#required' => TRUE,
     );
+
+    $form['mailchimpsimple_subscription_status'] = array(
+      '#title' => t('Subscription status'),
+      '#type' => 'select',
+      '#options' => array(
+        'subscribed' => t('Single opt-in, without confirmation email (subscribed)'),
+        'pending' => t('Double opt-in, with confirmation email (pending)')
+      ),
+      '#description' => t('Visit MailChimp page about <a href="@url">single opt-in vs double opt in</a>.', array('@url' => 'https://mailchimp.com/fr/help/single-opt-in-vs-double-opt-in/')),
+      '#required' => TRUE,
+      '#default_value' => mailchimpsimple_get_subscription_status(),
+    );
   }
 
   return system_settings_form($form);
